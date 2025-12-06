@@ -84,8 +84,7 @@ npm run dev
 Then open the URL shown in the terminal (usually http://localhost:5173/).
 
 🔗 Live Demo
-
-Coming soon – a deployed link will be added here.
+Live: https://wisora-1oih.vercel.app/
 
 🔮 Future Enhancements
 ⏳ Study timer to track focused time
