@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import WelcomePage from './components/welcomePage.jsx';
 import Home from './components/home.jsx';
 import Studying from './components/Studying.jsx';
-import BookSection from './components/bookSection.jsx'; 
+import BookSection from './components/BookSection.jsx'; 
 function App() {
   return (
     <BrowserRouter>
