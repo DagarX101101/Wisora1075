@@ -1,3 +1,61 @@
 textarea::placeholder {
   color: white;
 }
+.clock-container{
+  position: absolute;
+}
+
+.clock-display{
+  position: absolute;
+  top: 40%;
+  left: 18%;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 28px;
+  color: #7aff7a;
+  text-shadow: 0 0 2px #7aff7a;
+  text-shadow: 0 0 4px #3f7f3f;
+  pointer-events: none; 
+}
+
+.clock-display .clock-input{
+  background: transparent;
+  border:none;
+  outline: none;
+  font: inherit;
+  color: inherit;
+  caret-color: #7aff7a;
+  pointer-events: auto;
+}
+
+.clock-container button{
+  position: absolute;
+  background:transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.clock-btn-start{
+  top: 20%;
+  left: 10%;
+  width: 10px;
+  height: 10px;
+}
+.clock-btn-set{
+  top: 20%;
+  left: 28%;
+  width: 40px;
+  height: 10px;
+}
+.clock-btn-pause{
+  top: 20%;
+  left: 66%;
+  width: 10px;
+  height: 10px;
+}
+.clock-btn-stop{
+  top: 20%;
+  left: 48%;
+  width: 10px;
+  height: 10px;
+}

@@ -40,8 +40,22 @@ const TRASH_BIN_DIMENSIONS = {
 // =======================================================================
 
 const Studying = () => {
+  const [seconds, setSeconds] = useState(0);
+  const [isEditingCountdown, setIsEditingCountdown] = useState(false);
+  const countdownInputRef = useRef(null);
+  const [countdownInput, setCountdownInput] = useState("00:00:00");
+  const [isRunning, setIsRunning] = useState(false);
+  const [countdownMode, setCountdownMode] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(0);
   const [draggedNote, setDraggedNote] = useState(null);
   const [draggedNoteIndex, setDraggedNoteIndex] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [selectedNoteIndex, setSelectedNoteIndex] = useState(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isDraggingExistingNote, setIsDraggingExistingNote] = useState(false);
+  const [isOverTrashBin, setIsOverTrashBin] = useState(false);
+  const studyingRef = useRef(null);
+  const audioRef = useRef(new Audio(clickSound));
   const [stickyNotes, setStickyNotes] = useState(() => {
     try {
       const saved = localStorage.getItem('stickyNotes');
@@ -53,24 +67,42 @@ const Studying = () => {
 useEffect(() => {
     localStorage.setItem('stickyNotes', JSON.stringify(stickyNotes));
   }, [stickyNotes]);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [selectedNoteIndex, setSelectedNoteIndex] = useState(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  
-  // 🗑️ NEW STATES FOR DELETION
-  const [isDraggingExistingNote, setIsDraggingExistingNote] = useState(false);
-  const [isOverTrashBin, setIsOverTrashBin] = useState(false);
-
-  const studyingRef = useRef(null);
-  const audioRef = useRef(new Audio(clickSound));
-
+useEffect(()=>{
+    let intervalId;
+    if(isRunning){
+      if(!countdownMode){
+      intervalId = setInterval(() => {
+        setSeconds((prev)=> prev+1);
+      }, 1000);
+    }else{
+      intervalId = setInterval(() => {
+        setCountdownSeconds(prev=>{
+          if(prev<=1){
+            clearInterval(intervalId);
+            setIsRunning(false);
+            return 0;
+          }
+          return prev-1;
+        });
+      }, 1000);
+    }
+    }
+    return () => {
+      if(intervalId) clearInterval(intervalId);
+    };
+  },[isRunning, countdownMode]);
+  useEffect(()=>{
+    if(isEditingCountdown && countdownInputRef.current){
+      countdownInputRef.current.focus();
+      countdownInputRef.current.setSelectionRange(0,1);
+    }
+  },[isEditingCountdown]);
   const noteMap = {
     stickynote1: greenstickynote,
     stickynote2: pinkstickynote,
     stickynote3: bluestickynote,
     stickynote4: yellowstickynote
   };
-  
   // Helper to get the trash bin's viewport coordinates for collision detection
   const getTrashRect = () => ({
       x: TRASH_BIN_DIMENSIONS.left,
@@ -79,7 +111,114 @@ useEffect(() => {
       width: TRASH_BIN_DIMENSIONS.width,
       height: TRASH_BIN_DIMENSIONS.height
   });
+  const handleCountdownInputKeyDown = (e) => {
+  // ENTER: apply value and start countdown
+  if (e.key === "Enter") {
+    const totalSeconds = parseTimeString(countdownInput);
+    if (totalSeconds == null || totalSeconds <= 0) {
+      alert("Please enter a valid time as HH:MM:SS");
+      return;
+    }
+    setCountdownSeconds(totalSeconds);
+    setIsEditingCountdown(false);
+    setCountdownMode(true);
+    setIsRunning(true);
+    return;
+  }
 
+  // ESC: cancel editing
+  if (e.key === "Escape") {
+    setIsEditingCountdown(false);
+    return;
+  }
+
+  // Handle digit input
+  if (/^\d$/.test(e.key)) {
+    e.preventDefault(); // we will manually update the value
+
+    if (!countdownInputRef.current) return;
+
+    const editablePositions = [0, 1, 3, 4, 6, 7]; // H H : M M : S S
+    let pos = countdownInputRef.current.selectionStart ?? 0;
+
+    // Snap caret to a valid editable position
+    if (!editablePositions.includes(pos)) {
+      // If at a colon or weird place, move to next editable
+      pos = editablePositions.find(p => p >= pos) ?? 7;
+    }
+
+    // Replace the character at the current position with the digit
+    const chars = countdownInput.split("");
+    chars[pos] = e.key;
+    const newVal = chars.join("");
+    setCountdownInput(newVal);
+
+    // Move caret to next editable position
+    const currentIndex = editablePositions.indexOf(pos);
+    const nextIndex = Math.min(currentIndex + 1, editablePositions.length - 1);
+    const nextPos = editablePositions[nextIndex];
+
+    requestAnimationFrame(() => {
+      if (countdownInputRef.current) {
+        countdownInputRef.current.setSelectionRange(nextPos, nextPos + 1);
+      }
+    });
+
+    return;
+  }
+
+  // Handle Backspace: go back one field and zero it
+  if (e.key === "Backspace") {
+    e.preventDefault();
+
+    if (!countdownInputRef.current) return;
+
+    const editablePositions = [0, 1, 3, 4, 6, 7];
+    let pos = countdownInputRef.current.selectionStart ?? 0;
+
+    // Ensure we're on an editable spot
+    if (!editablePositions.includes(pos)) {
+      pos = editablePositions.find(p => p < pos) ?? editablePositions[editablePositions.length - 1];
+    }
+
+    const index = editablePositions.indexOf(pos);
+    const prevIndex = Math.max(index - 1, 0);
+    const prevPos = editablePositions[prevIndex];
+
+    const chars = countdownInput.split("");
+    chars[prevPos] = "0"; // reset that digit to 0
+    const newVal = chars.join("");
+    setCountdownInput(newVal);
+
+    requestAnimationFrame(() => {
+      if (countdownInputRef.current) {
+        countdownInputRef.current.setSelectionRange(prevPos, prevPos + 1);
+      }
+    });
+
+    return;
+  }
+
+  // Block other random characters (like letters, space, etc.)
+  if (e.key.length === 1 && !/\d/.test(e.key)) {
+    e.preventDefault();
+  }
+};
+
+  const parseTimeString = (str) =>{
+    const parts = str.trim().split(":");
+    if(parts.length!=3) return null;
+    const [hStr, mStr, sStr] = parts;
+    const hours = Number(hStr);
+    const minutes = Number (mStr);
+    const seconds = Number(sStr);
+    if(
+      Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds) || hours<0 || minutes<0 || seconds<0 || minutes>59 || seconds> 59
+    ){
+      return null;
+    }
+    return hours*3600 + minutes*60 + seconds;
+  };
   const handleMouseDown = (noteKey, e, index = null) => {
     e.preventDefault();
     audioRef.current.currentTime = 0;
@@ -97,7 +236,6 @@ useEffect(() => {
     
     setMousePos({ x: e.clientX, y: e.clientY });
   };
-
   const handleMouseMove = (e) => {
     if (draggedNote) {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -116,7 +254,6 @@ useEffect(() => {
       }
     }
   };
-
   const handleMouseUp = (e) => {
     if (draggedNote) {
       const containerRect = studyingRef.current.getBoundingClientRect();
@@ -162,7 +299,6 @@ useEffect(() => {
       setIsOverTrashBin(false); // Reset trash bin state
     }
   };
-
   const handleNoteClick = (index, e) => {
     e.stopPropagation();
     if (!draggedNote) {
@@ -170,7 +306,6 @@ useEffect(() => {
       setIsEditorOpen(true);
     }
   };
-
   const handleSaveNote = (text, drawings) => {
     if (selectedNoteIndex !== null) {
       setStickyNotes(prev =>
@@ -184,7 +319,38 @@ useEffect(() => {
     setIsEditorOpen(false);
     setSelectedNoteIndex(null);
   };
-
+  const formatTime = (total) =>{
+    const h = Math.floor(total/3600);
+    const m = Math.floor((total%3600)/60);
+    const s = total%60;
+    const pad = (n) => n.toString().padStart(2,"0");
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
+  const handleStart = () => {
+    setCountdownMode(false);
+    setSeconds(0);
+    setIsRunning(true);
+  };
+  const handlePause = () => {
+    setIsRunning(!isRunning);
+  };
+  const handleStop = () => {
+    setIsRunning(false);
+    setIsEditingCountdown(false);
+    if(countdownMode){
+      setCountdownSeconds(0);
+      setCountdownMode(false);
+    }else{
+      setSeconds(0);
+    }
+  };
+  const handleSetCountdown = () =>{
+    setIsRunning(false);
+    setCountdownMode(true);
+    setIsEditingCountdown(true);
+    const baseSeconds = countdownSeconds>0? countdownSeconds: 0;
+    setCountdownInput(formatTime(baseSeconds));
+  };
   return (
     <div
       ref={studyingRef}
@@ -276,18 +442,57 @@ useEffect(() => {
           cursor: 'grab'
         }}
       />
-      <img
-       src = {digitalClock}
-       alt = "digitalClock"
-       style ={{
-        position: 'absolute',
-        top: '55%',
-        left : '70%',
-        height: '110px',
-        width: '220px',
-        zIndex: 30
-       }}
+      <div 
+  className="clock-container"
+  style={{
+    position: 'absolute',
+    top: '55%',
+    left: '70%',
+    height: '110px',
+    width: '220px',
+    zIndex: 30
+  }}
+>
+  <img
+    src={digitalClock}
+    alt="digitalClock"
+    style={{
+      height: '100%',
+      width: '100%',
+      display: 'block'
+    }}
+  />
+  <div className="clock-display">
+    {isEditingCountdown? (
+      <input
+      ref = {countdownInputRef}
+      className="clock-input"
+      value = {countdownInput}
+      onChange = {()=>{}}
+      onKeyDown={handleCountdownInputKeyDown}
       />
+    ):(
+      countdownMode ? formatTime(countdownSeconds) : formatTime(seconds)
+    )}
+  </div>
+  <button
+  className="clock-btn-start"
+  onClick={handleStart}
+  ></button>
+  <button
+  className="clock-btn-set"
+  onClick={handleSetCountdown}
+  ></button>
+  <button
+  className="clock-btn-pause"
+  onClick={handlePause}
+  ></button>
+  <button
+  className="clock-btn-stop"
+  onClick={handleStop}
+  ></button>
+</div>
+
       {/* 🗑️ TRASH BIN - Positioned at the bottom using fixed coordinates */}
       {isDraggingExistingNote && (
           <div
@@ -467,11 +672,9 @@ const StickyNoteDrawing = ({ drawings, position, size }) => {
     />
   );
 };
-
 // =======================================================================
 // === 3. StickyNoteEditor Component ===
 // =======================================================================
-
 const StickyNoteEditor = ({ note, onSave, onClose }) => {
   const [text, setText] = useState(note.text || '');
   const [tool, setTool] = useState('text');
