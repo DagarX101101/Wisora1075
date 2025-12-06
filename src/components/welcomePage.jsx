@@ -1,5 +1,5 @@
 import backgroundImage from '../assets/gif.gif';
-import './WelcomePage.css';
+import './welcomePage.css';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
